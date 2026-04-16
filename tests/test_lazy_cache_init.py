@@ -71,6 +71,7 @@ def ida_mcp_modules(monkeypatch):
 
     sync.IDAError = IDAError
     sync.idasync = lambda func: func
+    sync.tool_timeout = lambda seconds: (lambda func: setattr(func, "__ida_mcp_timeout_sec__", seconds) or func)
     monkeypatch.setitem(sys.modules, "ida_multi_mcp.ida_mcp.sync", sync)
 
     utils = types.ModuleType("ida_multi_mcp.ida_mcp.utils")
@@ -166,6 +167,11 @@ class TestApiCoreLazyCaches:
         assert result["functions"] == 1
         assert result["globals"] == 1
         assert result["time_ms"] >= 0
+
+    def test_refresh_caches_has_extended_timeout(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+
+        assert getattr(api_core.refresh_caches, "__ida_mcp_timeout_sec__", None) == 120.0
 
 
 class TestApiModifyCacheInvalidation:
