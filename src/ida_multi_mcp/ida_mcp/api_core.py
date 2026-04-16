@@ -16,7 +16,7 @@ import ida_segment
 import idc
 
 from .rpc import tool
-from .sync import idasync
+from .sync import idasync, tool_timeout
 
 # Cached strings list: [(ea, text), ...]
 _strings_cache: list[tuple[int, str]] | None = None
@@ -91,6 +91,7 @@ def init_caches():
 
 @tool
 @idasync
+@tool_timeout(120.0)
 def refresh_caches() -> dict:
     """Force-refresh all caches (strings, functions, globals)."""
     invalidate_strings_cache()
