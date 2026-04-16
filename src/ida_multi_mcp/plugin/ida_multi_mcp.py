@@ -13,6 +13,7 @@ import threading
 from pathlib import Path
 
 import idaapi
+import ida_kernwin
 
 # Import registration functions (add parent to path for ida_multi_mcp imports)
 _pkg_dir = str(Path(__file__).parent.parent.parent)
@@ -25,6 +26,17 @@ from ida_multi_mcp.plugin.registration import (
     update_heartbeat,
     get_binary_metadata,
 )
+
+
+def _is_gui_runtime() -> bool:
+    """Return True when running inside the interactive IDA GUI."""
+    checker = getattr(ida_kernwin, "is_idaq", None)
+    if checker is None:
+        return True
+    try:
+        return bool(checker())
+    except Exception:
+        return True
 
 
 def _load_ida_mcp():
@@ -68,7 +80,10 @@ class IdaMultiMcpPlugin(idaapi.plugin_t):
 
     def init(self):
         """Plugin initialization — install hooks, start if DB already open."""
-        print("[ida-multi-mcp] Plugin loaded (PLUGIN_FIX)")
+        if _is_gui_runtime():
+            print("[ida-multi-mcp] Plugin loaded (PLUGIN_FIX)")
+        else:
+            print("[ida-multi-mcp] Plugin loaded (headless mode, server managed externally)")
 
         # Install hooks for database lifecycle events
         self.idb_hooks = IdbHooks(self)
@@ -78,7 +93,7 @@ class IdaMultiMcpPlugin(idaapi.plugin_t):
         self.hooks_installed = True
 
         # If database is already open, start immediately
-        if idaapi.get_input_file_path():
+        if _is_gui_runtime() and idaapi.get_input_file_path():
             self.start_server()
 
         return idaapi.PLUGIN_KEEP
@@ -240,7 +255,8 @@ class UiHooks(idaapi.UI_Hooks):
     def database_inited(self, is_new_database, idc_script):
         """Called when a new database is initialized — start server."""
         print("[ida-multi-mcp] Database initialized")
-        self.plugin.start_server()
+        if _is_gui_runtime():
+            self.plugin.start_server()
         return 0
 
 
